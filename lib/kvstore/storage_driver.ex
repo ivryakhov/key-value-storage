@@ -17,7 +17,7 @@ defmodule Storage.Driver do
   def read_element(storage_ref, key) do
     case :dets.lookup(storage_ref, key) do
       [] -> :no_element
-      [{_key, value, ttl, _timestamp}] -> value
+      [{_key, value, _ttl, _timestamp}] -> value
       [_|_] -> :too_many_elements
     end
   end
