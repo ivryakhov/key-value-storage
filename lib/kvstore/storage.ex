@@ -1,11 +1,34 @@
-##Этот модуль должен реализовать механизмы CRUD для хранения данных. Если одного модуля будет мало, то допускается создание модулей с префиксом "Storage" в названии.
 defmodule Storage do
+  @moduledoc"""
+  Implements a genserver for key/valye storing interface and interaction with other modules
+  """
   use GenServer
+  require Logger
+
+  @doc """
+  External API
+  """
 
   def start_link do
+    Logger.info "Started storage server"
     GenServer.start_link(__MODULE__, [], [{:name, __MODULE__}])
   end
 
+
+  @doc """
+  Client API
+  """
+
+  @doc """
+  Creates an element in a storage.
+  Does not create if the element with key provided already exist.
+  Parameters:
+      key - string
+      value - string
+      ttl - integer
+  Output:
+      string - result of the operation
+  """
   def create(key, value, ttl) do
     case read(key) do
       "no such element" -> 
@@ -17,6 +40,14 @@ defmodule Storage do
     end
   end
 
+
+  @doc """
+  Reads an element from a storage by a key
+  Parameters:
+      key - string
+  Output:
+    string  - result of the operation
+  """
   def read(key) do
     case GenServer.call(__MODULE__, {:read, key}) do
       :no_element -> "no such element"
@@ -24,19 +55,36 @@ defmodule Storage do
     end
   end
 
+
+  @doc """
+  Updates an element value in a storage by a key
+  Parameters:
+      key - string
+      value - string
+  Output:
+      string - result of the operation
+  """
   def update(key, value) do
     case read(key) do
       "no such element" -> "no such element"
       _element ->
         case GenServer.call(__MODULE__, {:update, {key, value}}) do
           :no_element -> "no such element"
-          :too_many_elements -> "error: to many elements"
+          :too_many_elements -> "error: to many elements with the key provided"
           :ok -> "success"
-          _ -> "failed to create the element"
+          _ -> "failed to update the element"
         end
     end
   end
 
+
+  @doc """
+  Deletes an element from a storage by a key
+  Parameters:
+      key - string
+  Output:
+      string -  result of the operation
+  """
   def delete(key) do
     case read(key) do
       "no such element" -> "no such element"
@@ -48,11 +96,17 @@ defmodule Storage do
     end
   end
 
+  @doc """
+  Stops the server
+  """
   def stop() do
     GenServer.stop(__MODULE__)
   end
-    
 
+  
+  @doc """
+  GenServer callbacks
+  """
   def init([]) do
     table = Storage.Driver.initialize_storage()
     {:ok, table}
@@ -78,6 +132,5 @@ defmodule Storage do
     Storage.Driver.close_storage(table)
     {:ok}
   end
-  
 end
 
