@@ -1,11 +1,11 @@
 defmodule Storage.Driver do
+  require Logger
  
-  @storage_name :disk_storage
-    
   def initialize_storage() do
-    case :dets.info(@storage_name) do
-      :undefined -> open_file(@storage_name)
-      _InfoList  -> initialize_ttl(@storage_name)
+    storage_name = Application.get_env(:kvstore, :storage_name, :disk_storage)
+    case :dets.file_info(storage_name) do
+      {:error, _} -> open_file(storage_name)
+      {:ok, _props}  -> initialize_ttl(storage_name)
     end
   end
 
@@ -22,10 +22,18 @@ defmodule Storage.Driver do
     end
   end
 
-  def update_element(storage_ref, {key, value, ttl}) do
+  def update_element(storage_ref, {key, value}) do
     case :dets.lookup(storage_ref, key) do
       [] -> :no_element
-      [{key, _pvalue, _pttl, timestamp}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp})
+      [{key, _pvalue, ttl, timestamp}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp})
+      [_|_] -> :too_many_elements
+    end
+  end
+
+  defp update_element_ttl(storage_ref, {key, ttl}) do
+    case :dets.lookup(storage_ref, key) do
+      [] -> :no_element
+      [{key, value, _pttl, timestamp}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp})
       [_|_] -> :too_many_elements
     end
   end
@@ -62,13 +70,14 @@ defmodule Storage.Driver do
   end
 
   defp process_elements(storage_ref, key) do
-        [{key, value, ttl, timestamp}] = :dets.lookup(storage_ref, key)
+        [{key, _value, ttl, timestamp}] = :dets.lookup(storage_ref, key)
         current_time =  DateTime.utc_now |> DateTime.to_unix
         time_elapsed_in_sec = current_time - timestamp
-        ttl_diff = time_elapsed_in_sec * 1000 - ttl
+        ttl_diff = ttl - (time_elapsed_in_sec * 1000)
+
         if ttl_diff > 0 do
-          update_element(storage_ref, {key, value, ttl_diff})
-          delete_element_after(storage_ref, key, ttl_diff)
+          update_element_ttl(storage_ref, {key, ttl_diff})
+          Task.start fn -> delete_element_after(storage_ref, key, ttl_diff) end
         else
           delete_element(storage_ref, key)
         end

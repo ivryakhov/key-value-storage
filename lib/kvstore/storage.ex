@@ -8,26 +8,43 @@ defmodule Storage do
 
   def create(key, value, ttl) do
     case read(key) do
-      :no_element -> GenServer.call(__MODULE__, {:create, {key, value, ttl}})
-      _element -> false
+      "no such element" -> 
+        case GenServer.call(__MODULE__, {:create, {key, value, ttl}}) do
+            true -> "success"
+            false -> "failed to create the element"
+        end
+      _element -> "the element already exist"
     end
   end
 
   def read(key) do
-    GenServer.call(__MODULE__, {:read, key})
+    case GenServer.call(__MODULE__, {:read, key}) do
+      :no_element -> "no such element"
+      str_value -> str_value
+    end
   end
 
-  def update(key, value, ttl) do
+  def update(key, value) do
     case read(key) do
-      :no_element -> false
-      _element -> GenServer.call(__MODULE__, {:update, {key, value, ttl}})
+      "no such element" -> "no such element"
+      _element ->
+        case GenServer.call(__MODULE__, {:update, {key, value}}) do
+          :no_element -> "no such element"
+          :too_many_elements -> "error: to many elements"
+          :ok -> "success"
+          _ -> "failed to create the element"
+        end
     end
   end
 
   def delete(key) do
     case read(key) do
-      :no_element -> false
-      _element -> GenServer.call(__MODULE__, {:delete, key})
+      "no such element" -> "no such element"
+      _element -> 
+        case GenServer.call(__MODULE__, {:delete, key}) do
+          :ok -> "success"
+          _ -> "failed to delete"
+        end
     end
   end
 
@@ -49,8 +66,8 @@ defmodule Storage do
     {:reply, Storage.Driver.read_element(table, key), table}
   end
 
-  def handle_call({:update, {key, value, ttl}}, _from, table) do
-    {:reply, Storage.Driver.update_element(table, {key, value, ttl}), table}
+  def handle_call({:update, {key, value}}, _from, table) do
+    {:reply, Storage.Driver.update_element(table, {key, value}), table}
   end
 
   def handle_call({:delete, key}, _from, table) do
