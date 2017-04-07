@@ -15,12 +15,22 @@ defmodule KVstoreTest do
      assert Storage.create("key1_5", "value1_7", 3453242) == "the element already exist"
   end
 
+  test "try non-inger ttl value" do
+    assert Storage.create("key1_8", "value1_8", :ttl) == "error: ttl must be an integer"
+    assert Storage.create("key1_8", "value1_8", "200000") == "error: ttl must be an integer"
+    assert Storage.create("key1_8", "value1_8", 20000.3453) == "error: ttl must be an integer"
+  end
+
+  test "try negative ttl value" do
+     assert Storage.create("key1_9", "vakue1_9", -90000) == "error: not posistive ttl value"
+  end
+
   test "read a storage element" do
      Storage.create("key2", "value2", 40000)
      assert Storage.read("key2") == "value2"
   end
 
-  test "read an unexisten storage element" do
+  test "read an unexistent storage element" do
     assert Storage.read("never_exist") == "no such element"
   end
 
@@ -32,7 +42,7 @@ defmodule KVstoreTest do
     assert Storage.read("key3") == "new_value3"
   end
 
-  test "update an unexisten element" do
+  test "update an unexistent element" do
     assert Storage.update("never_exist", "somevalue") == "no such element"
   end
 
@@ -46,5 +56,44 @@ defmodule KVstoreTest do
     assert Storage.delete("never_exist") == "no such element"
   end
 
+  test "check if an element exists before ttl exceeding" do
+     Storage.delete("5sec")
+    assert Storage.create("5sec", "5000", 5000) == "success"
+    :timer.sleep(3000)
+    assert  Storage.read("5sec") ==  "5000"
+  end
 
+  test "check if an element does not exist after ttl expiration" do
+    Storage.delete("3sec")
+    assert Storage.create("3sec", "3000", 3000) == "success"
+    :timer.sleep(5000)
+    assert Storage.read("3sec") == "no such element"
+  end
+
+  test "check if an element exist after storage open/closing" do
+    Storage.delete("20sec")
+    assert Storage.create("20sec", "20000", 20000) == "success"
+    Storage.stop()
+    :timer.sleep(6000)
+    assert Storage.read("20sec")  == "20000"
+  end
+
+  test "check if an elemen does not exist after storage restarting and ttl expiration" do
+     Storage.delete("4sec")
+     assert Storage.create("4sec", "4000", 4000) == "success"
+     Storage.stop()
+     :timer.sleep(5000)
+     assert Storage.read("20sec")  == "no such element"
+  end
+
+  test "check if an element exist after storage open/closing but absent after ttl expiration" do
+     Storage.delete("7sec")
+     assert Storage.create("7sec", "7000", 7000) == "success"
+     Storage.stop()
+     :timer.sleep(1000)
+     assert Storage.read("7sec") == "7000"
+     :timer.sleep(2000)
+      assert Storage.read("7sec") == "no such element"
+  end
+     
 end

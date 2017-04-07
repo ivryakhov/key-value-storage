@@ -1,11 +1,12 @@
-
-##curl -d "" "http://localhost:8080/?key=my_key&value=value&ttl=20000"
-##curl -G  "http://localhost:8080/?key=my_key"
-##curl -X PUT "http://localhost:8080/?key=my_key&value=new_value"
-##curl -X DELETE "http://localhost:8080/?key=my_key"
-
-
 defmodule Router do
+  @moduledoc """
+  Routes request to web server for key/value storage usign.
+  Sample requests:
+      curl -d "" "http://localhost:8080/?key=my_key&value=value&ttl=20000"
+      curl -G  "http://localhost:8080/?key=my_key"
+      curl -X PUT "http://localhost:8080/?key=my_key&value=new_value"
+      curl -X DELETE "http://localhost:8080/?key=my_key"
+  """
   use Plug.Router
 
   plug :match

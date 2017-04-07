@@ -17,9 +17,8 @@ defmodule Storage do
 
   @doc """
   Client API
-  """
 
-  @doc """
+
   Creates an element in a storage.
   Does not create if the element with key provided already exist.
   Parameters:
@@ -30,13 +29,22 @@ defmodule Storage do
       string - result of the operation
   """
   def create(key, value, ttl) do
-    case read(key) do
-      "no such element" -> 
-        case GenServer.call(__MODULE__, {:create, {key, value, ttl}}) do
-            true -> "success"
-            false -> "failed to create the element"
+    case is_integer(ttl) do
+      true ->
+        case ttl >= 0 do
+          true ->
+            case read(key) do
+              "no such element" -> 
+                case GenServer.call(__MODULE__, {:create, {key, value, ttl}}) do
+                  true -> "success"
+                  false -> "failed to create the element"
+                end
+              _element -> "the element already exist"
+            end
+          false ->
+            "error: not posistive ttl value"
         end
-      _element -> "the element already exist"
+      false -> "error: ttl must be an integer"
     end
   end
 

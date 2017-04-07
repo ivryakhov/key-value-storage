@@ -1,7 +1,7 @@
 defmodule Storage.Driver do
   @moduledoc """
   Implemenets interaction with the Disk Based Term Storage.
-  Separated to keep the storage inetrace independet of the storage choosen
+  Separated to keep the storage interface independet of the chosen storage
   """
   require Logger
  
@@ -44,9 +44,8 @@ defmodule Storage.Driver do
     end
   end
 
-  @doc """
-  Updates an element's ttl during a storage initialization
-  """
+
+  # Updates an element's ttl during a storage initialization
   defp update_element_ttl(storage_ref, {key, ttl}) do
     case :dets.lookup(storage_ref, key) do
       [] -> :no_element
@@ -63,33 +62,28 @@ defmodule Storage.Driver do
   end
 
   @doc """
-  Closes a connection to the storage
+  Closes a connection to the storage.
+  Timer is added for testing purpose for checkingttl expiration
   """
   def close_storage(storage_ref) do
      :dets.close(storage_ref)
+     :timer.sleep(5000)
   end
 
-  @doce """
-  Opens a connection to the storage
-  """
+  #Opens a connection to the storage
   defp open_file(storage_name) do
     {:ok, storage_ref} = :dets.open_file(storage_name, [type: :set])
     storage_ref
   end
 
-  @doc """
-  For each existing element, check if the time to live of the element is exceeded.
-  If true, deletes the element. Overwise, updates a ttl in the storage with an actual value
-  """
+  #For each existing element, check if the time to live of the element is exceeded.
+  #If true, deletes the element. Overwise, updates a ttl in the storage with an actual value
   defp initialize_ttl(storage_name) do
     storage_ref = open_file(storage_name)
     :ok = process_elements(storage_ref, :dets.first(storage_ref))
     storage_ref
   end
 
-  @doc """
-  Deletes an element after ttl exceeding.
-  """
   defp delete_element_after(storage_ref, key, ttl) do
     receive do
       {:update_ttl, new_ttl} -> delete_element_after(storage_ref, key, new_ttl)
@@ -98,9 +92,6 @@ defmodule Storage.Driver do
     end
   end
 
-  @doc """
-  Initialize a ttl for each eleemnt in an existing storage
-  """
   defp process_elements(_str_ref, :"$end_of_table") do
     :ok
   end
