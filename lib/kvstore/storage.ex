@@ -33,17 +33,17 @@ defmodule Storage do
         case ttl >= 0 do
           true ->
             case read(key) do
-              "no such element" -> 
+              :no_element -> 
                 case GenServer.call(__MODULE__, {:create, {key, value, ttl}}) do
-                  true -> "success"
-                  false -> "failed to create the element"
+                  true -> :success
+                  false -> :failed_create
                 end
-              _element -> "the element already exist"
+              _element -> :already_exists
             end
           false ->
-            "error: not posistive ttl value"
+            :not_pos_ttl
         end
-      false -> "error: ttl must be an integer"
+      false -> :not_integer_ttl
     end
   end
 
@@ -57,7 +57,7 @@ defmodule Storage do
   """
   def read(key) do
     case GenServer.call(__MODULE__, {:read, key}) do
-      :no_element -> "no such element"
+      :no_element -> :no_element
       str_value -> str_value
     end
   end
@@ -73,13 +73,13 @@ defmodule Storage do
   """
   def update(key, value) do
     case read(key) do
-      "no such element" -> "no such element"
+      :no_element -> :no_element
       _element ->
         case GenServer.call(__MODULE__, {:update, {key, value}}) do
-          :no_element -> "no such element"
-          :too_many_elements -> "error: to many elements with the key provided"
-          :ok -> "success"
-          _ -> "failed to update the element"
+          :no_element -> :no_element
+          :too_many_elements -> :too_many_elements
+          :ok -> :success
+          _ -> :failed_to_update
         end
     end
   end
@@ -94,11 +94,11 @@ defmodule Storage do
   """
   def delete(key) do
     case read(key) do
-      "no such element" -> "no such element"
+      :no_element -> :no_element
       _element -> 
         case GenServer.call(__MODULE__, {:delete, key}) do
-          :ok -> "success"
-          _ -> "failed to delete"
+          :ok -> :success
+          _ -> :failed_to_delete
         end
     end
   end

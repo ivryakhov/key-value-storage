@@ -11,6 +11,19 @@ defmodule Router do
 
   plug :match
   plug :dispatch
+
+  @reply_dict %{
+    :no_element => "no such element",
+    :success => "success",
+    :failed_create => "failed to create the element",
+    :already_exists => "the element already exists",
+    :not_pos_ttl => "error: not posistive ttl value",
+    :not_integer_ttl => "error: ttl must be an integer",
+    :too_many_elements => "error: to many elements with the key provided",
+    :failed_to_update => "failed to update the element",
+    :failed_to_delete => "failed to delete"
+  }
+
   
   get "/" do
     conn
@@ -45,7 +58,7 @@ defmodule Router do
   defp add_element(conn) do
     {ttl, _} = Integer.parse(conn.params["ttl"])
     reply = Storage.create(conn.params["key"], conn.params["value"], ttl)
-    Plug.Conn.assign(conn, :response, reply)
+    Plug.Conn.assign(conn, :response, @reply_dict[reply])
   end
 
   defp read_element(conn) do
@@ -55,12 +68,12 @@ defmodule Router do
 
   defp update_element(conn) do
     reply = Storage.update(conn.params["key"], conn.params["value"])
-    Plug.Conn.assign(conn, :response, reply)
+    Plug.Conn.assign(conn, :response, @reply_dict[reply])
   end
 
   defp delete_element(conn) do
     reply = Storage.delete(conn.params["key"])
-    Plug.Conn.assign(conn, :response, reply)
+    Plug.Conn.assign(conn, :response, @reply_dict[reply])
   end
 
   defp respond(conn) do

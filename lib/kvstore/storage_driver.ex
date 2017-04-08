@@ -19,7 +19,7 @@ defmodule Storage.Driver do
   """
   def create_element(storage_ref, {key, value, ttl}) do
     {:ok, pid} = Task.start_link fn -> delete_element_after(storage_ref, key, ttl) end
-    :dets.insert_new(storage_ref, {key, value, ttl, DateTime.utc_now |> DateTime.to_unix, pid})
+    :dets.insert_new(storage_ref, {key, value, ttl, :os.system_time(:milli_seconds), pid})
   end
 
   @doc """
@@ -113,9 +113,9 @@ defmodule Storage.Driver do
 
   defp process_elements(storage_ref, key) do
         [{key, _value, ttl, timestamp, _pid}] = :dets.lookup(storage_ref, key)
-        current_time =  DateTime.utc_now |> DateTime.to_unix
+        current_time =  :os.system_time(:milli_seconds)
         time_elapsed_in_sec = current_time - timestamp
-        ttl_diff = ttl - (time_elapsed_in_sec * 1000)
+        ttl_diff = ttl - time_elapsed_in_sec
         if ttl_diff > 0 do
           {:ok, new_pid} = Task.start_link fn -> delete_element_after(storage_ref, key, ttl_diff) end
           update_element_ttl_and_pid(storage_ref, {key, ttl_diff, new_pid})
