@@ -18,7 +18,6 @@ defmodule Storage do
   @doc """
   Client API
 
-
   Creates an element in a storage.
   Does not create if the element with key provided already exist.
   Parameters:
@@ -138,6 +137,7 @@ defmodule Storage do
 
   def terminate(_reason, table) do
     Storage.Driver.close_storage(table)
+    Logger.info "Stopped storage server"
     {:ok}
   end
 end

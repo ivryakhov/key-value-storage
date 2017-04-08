@@ -57,7 +57,7 @@ defmodule KVstoreTest do
   end
 
   test "check if an element exists before ttl exceeding" do
-     Storage.delete("5sec")
+    Storage.delete("5sec")
     assert Storage.create("5sec", "5000", 5000) == "success"
     :timer.sleep(3000)
     assert  Storage.read("5sec") ==  "5000"
@@ -83,7 +83,7 @@ defmodule KVstoreTest do
      assert Storage.create("4sec", "4000", 4000) == "success"
      Storage.stop()
      :timer.sleep(5000)
-     assert Storage.read("20sec")  == "no such element"
+     assert Storage.read("4sec")  == "no such element"
   end
 
   test "check if an element exist after storage open/closing but absent after ttl expiration" do
@@ -94,6 +94,15 @@ defmodule KVstoreTest do
      assert Storage.read("7sec") == "7000"
      :timer.sleep(2000)
       assert Storage.read("7sec") == "no such element"
+  end
+
+  test "the delete_after prosse shoud be kill with an element" do
+    Storage.delete("phoenix")
+    assert Storage.create("phoenix", "short-life", 5000) == "success"
+    assert Storage.delete("phoenix") == "success"
+    assert Storage.create("phoenix", "rebearth", 50000) == "success"
+    :timer.sleep(5000)
+    assert Storage.read("phoenix") == "rebearth"
   end
      
 end

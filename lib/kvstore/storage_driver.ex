@@ -18,8 +18,8 @@ defmodule Storage.Driver do
   Creates a process which deletes the element after the ttl exceeding.
   """
   def create_element(storage_ref, {key, value, ttl}) do
-    Task.start fn -> delete_element_after(storage_ref, key, ttl) end
-    :dets.insert_new(storage_ref, {key,value, ttl, DateTime.utc_now |> DateTime.to_unix})
+    {:ok, pid} = Task.start_link fn -> delete_element_after(storage_ref, key, ttl) end
+    :dets.insert_new(storage_ref, {key, value, ttl, DateTime.utc_now |> DateTime.to_unix, pid})
   end
 
   @doc """
@@ -28,7 +28,7 @@ defmodule Storage.Driver do
   def read_element(storage_ref, key) do
     case :dets.lookup(storage_ref, key) do
       [] -> :no_element
-      [{_key, value, _ttl, _timestamp}] -> value
+      [{_key, value, _ttl, _timestamp, _pid}] -> value
       [_|_] -> :too_many_elements
     end
   end
@@ -39,35 +39,30 @@ defmodule Storage.Driver do
   def update_element(storage_ref, {key, value}) do
     case :dets.lookup(storage_ref, key) do
       [] -> :no_element
-      [{key, _pvalue, ttl, timestamp}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp})
+      [{key, _pvalue, ttl, timestamp, pid}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp, pid})
       [_|_] -> :too_many_elements
     end
   end
 
-
-  # Updates an element's ttl during a storage initialization
-  defp update_element_ttl(storage_ref, {key, ttl}) do
-    case :dets.lookup(storage_ref, key) do
-      [] -> :no_element
-      [{key, value, _pttl, timestamp}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp})
-      [_|_] -> :too_many_elements
-    end
-  end
 
   @doc """
   Deletes an element by a key
   """
   def delete_element(storage_ref, key) do
-    :dets.delete(storage_ref, key)
+    delete_element_process(storage_ref, key)
+    delete_element_from_storage(storage_ref, key)
   end
 
   @doc """
   Closes a connection to the storage.
-  Timer is added for testing purpose for checkingttl expiration
+  Timer is added for testing purpose check ttl expiration
   """
   def close_storage(storage_ref) do
-     :dets.close(storage_ref)
-     :timer.sleep(5000)
+    for pid <- :dets.match(:disk_storage, {:"_", :"_", :"_", :"_", :"$1"}) |> List.flatten do
+      send pid, {:close}
+    end
+    :dets.close(storage_ref)
+    :timer.sleep(5000)
   end
 
   #Opens a connection to the storage
@@ -84,11 +79,31 @@ defmodule Storage.Driver do
     storage_ref
   end
 
+  # Updates an element's ttl and pid during a storage initialization
+   defp update_element_ttl_and_pid(storage_ref, {key, ttl, pid}) do
+    case :dets.lookup(storage_ref, key) do
+      [] -> :no_element
+      [{key, value, _pttl, timestamp, _ppid}] -> :dets.insert(storage_ref, {key, value, ttl, timestamp, pid})
+      [_|_] -> :too_many_elements
+    end
+  end
+
+  defp delete_element_process(storage_ref, key) do
+    [{_key, _value, _ttl, _timestamp, pid}] = :dets.lookup(storage_ref, key)
+    send pid, {:close}
+  end
+
+  defp delete_element_from_storage(storage_ref, key) do
+    :dets.delete(storage_ref, key)
+  end
+    
   defp delete_element_after(storage_ref, key, ttl) do
     receive do
       {:update_ttl, new_ttl} -> delete_element_after(storage_ref, key, new_ttl)
+      {:close} -> :ok
     after
-      ttl -> delete_element(storage_ref, key)
+      ttl ->
+          delete_element_from_storage(storage_ref, key)
     end
   end
 
@@ -97,15 +112,15 @@ defmodule Storage.Driver do
   end
 
   defp process_elements(storage_ref, key) do
-        [{key, _value, ttl, timestamp}] = :dets.lookup(storage_ref, key)
+        [{key, _value, ttl, timestamp, _pid}] = :dets.lookup(storage_ref, key)
         current_time =  DateTime.utc_now |> DateTime.to_unix
         time_elapsed_in_sec = current_time - timestamp
         ttl_diff = ttl - (time_elapsed_in_sec * 1000)
         if ttl_diff > 0 do
-          update_element_ttl(storage_ref, {key, ttl_diff})
-          Task.start fn -> delete_element_after(storage_ref, key, ttl_diff) end
+          {:ok, new_pid} = Task.start_link fn -> delete_element_after(storage_ref, key, ttl_diff) end
+          update_element_ttl_and_pid(storage_ref, {key, ttl_diff, new_pid})
         else
-          delete_element(storage_ref, key)
+          delete_element_from_storage(storage_ref, key)
         end
 
         process_elements(storage_ref, :dets.next(storage_ref, key))
