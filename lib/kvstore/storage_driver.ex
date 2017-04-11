@@ -114,8 +114,8 @@ defmodule Storage.Driver do
   defp process_elements(storage_ref, key) do
         [{key, _value, ttl, timestamp, _pid}] = :dets.lookup(storage_ref, key)
         current_time =  :os.system_time(:milli_seconds)
-        time_elapsed_in_sec = current_time - timestamp
-        ttl_diff = ttl - time_elapsed_in_sec
+        time_elapsed_in_millisec = current_time - timestamp
+        ttl_diff = ttl - time_elapsed_in_millisec
         if ttl_diff > 0 do
           {:ok, new_pid} = Task.start_link fn -> delete_element_after(storage_ref, key, ttl_diff) end
           update_element_ttl_and_pid(storage_ref, {key, ttl_diff, new_pid})

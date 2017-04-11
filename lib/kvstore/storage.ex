@@ -25,7 +25,7 @@ defmodule Storage do
       value - string
       ttl - integer
   Output:
-      string - result of the operation
+      atom - result of the operation
   """
   def create(key, value, ttl) do
     case is_integer(ttl) do
@@ -53,7 +53,7 @@ defmodule Storage do
   Parameters:
       key - string
   Output:
-    string  - result of the operation
+      atom - result of the operation
   """
   def read(key) do
     case GenServer.call(__MODULE__, {:read, key}) do
@@ -69,7 +69,7 @@ defmodule Storage do
       key - string
       value - string
   Output:
-      string - result of the operation
+      atom - result of the operation
   """
   def update(key, value) do
     case read(key) do
@@ -90,7 +90,7 @@ defmodule Storage do
   Parameters:
       key - string
   Output:
-      string -  result of the operation
+      atom -  result of the operation
   """
   def delete(key) do
     case read(key) do
